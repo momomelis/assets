@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Calendar, Instagram, Twitter, Video, Image, FileText, TrendingUp } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Calendar, Instagram, Twitter, Video, Image, FileText, TrendingUp, BarChart2, PieChart } from 'lucide-react';
 
 const SocialMediaCalendar = () => {
   const [selectedWeek, setSelectedWeek] = useState(1);
   const [selectedPlatform, setSelectedPlatform] = useState('all');
+  const [activeTab, setActiveTab] = useState('calendar');
 
   const contentThemes = {
     1: { theme: "Brand Introduction", focus: "Establish voice and aesthetic" },
@@ -131,6 +132,58 @@ const SocialMediaCalendar = () => {
     }
   };
 
+  // --- Analytics computations ---
+  const platformCounts = useMemo(() => {
+    return posts.reduce((acc, p) => {
+      acc[p.platform] = (acc[p.platform] || 0) + 1;
+      return acc;
+    }, {});
+  }, []);
+
+  const typeCounts = useMemo(() => {
+    return posts.reduce((acc, p) => {
+      acc[p.type] = (acc[p.type] || 0) + 1;
+      return acc;
+    }, {});
+  }, []);
+
+  const weeklyPostCounts = useMemo(() => {
+    return posts.reduce((acc, p) => {
+      acc[p.week] = (acc[p.week] || 0) + 1;
+      return acc;
+    }, {});
+  }, []);
+
+  const platformWeekMatrix = useMemo(() => {
+    const matrix = {};
+    ['Instagram', 'TikTok', 'Twitter'].forEach(pl => {
+      matrix[pl] = {};
+      for (let w = 1; w <= 12; w++) matrix[pl][w] = 0;
+    });
+    posts.forEach(p => { matrix[p.platform][p.week]++; });
+    return matrix;
+  }, []);
+
+  const maxWeeklyCount = Math.max(...Object.values(weeklyPostCounts));
+  const totalPosts = posts.length;
+
+  const platformColors = {
+    Instagram: { bar: 'bg-pink-500', text: 'text-pink-600', light: 'bg-pink-100' },
+    TikTok:    { bar: 'bg-gray-800', text: 'text-gray-800', light: 'bg-gray-200' },
+    Twitter:   { bar: 'bg-blue-400', text: 'text-blue-500', light: 'bg-blue-100' },
+  };
+
+  const typeColors = [
+    'bg-pink-500', 'bg-purple-500', 'bg-blue-500', 'bg-green-500',
+    'bg-yellow-500', 'bg-orange-500', 'bg-red-400', 'bg-teal-500',
+  ];
+
+  const phases = [
+    { label: 'Brand Building', weeks: [1, 2, 3, 4], color: 'bg-purple-200 border-purple-400', text: 'text-purple-700' },
+    { label: 'Story & Trust', weeks: [5, 6, 7, 8], color: 'bg-pink-200 border-pink-400', text: 'text-pink-700' },
+    { label: 'Launch Ramp-Up', weeks: [9, 10, 11, 12], color: 'bg-orange-200 border-orange-400', text: 'text-orange-700' },
+  ];
+
   return (
     <div className="w-full min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -144,6 +197,192 @@ const SocialMediaCalendar = () => {
             </div>
           </div>
         </div>
+
+        {/* Tab Navigation */}
+        <div className="bg-white rounded-xl p-2 mb-6 shadow-lg flex gap-2">
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`flex items-center gap-2 flex-1 justify-center py-3 rounded-lg font-semibold transition-all ${
+              activeTab === 'calendar' ? 'bg-pink-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Calendar className="w-5 h-5" /> Calendar
+          </button>
+          <button
+            onClick={() => setActiveTab('analytics')}
+            className={`flex items-center gap-2 flex-1 justify-center py-3 rounded-lg font-semibold transition-all ${
+              activeTab === 'analytics' ? 'bg-pink-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <BarChart2 className="w-5 h-5" /> Analytics
+          </button>
+        </div>
+
+        {/* ===== ANALYTICS TAB ===== */}
+        {activeTab === 'analytics' && (
+          <div className="space-y-6">
+
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white rounded-xl p-5 shadow-lg text-center">
+                <div className="text-4xl font-bold text-pink-600">{totalPosts}</div>
+                <div className="text-gray-500 mt-1">Total Posts</div>
+              </div>
+              <div className="bg-white rounded-xl p-5 shadow-lg text-center">
+                <div className="text-4xl font-bold text-purple-600">12</div>
+                <div className="text-gray-500 mt-1">Weeks</div>
+              </div>
+              <div className="bg-white rounded-xl p-5 shadow-lg text-center">
+                <div className="text-4xl font-bold text-blue-500">3</div>
+                <div className="text-gray-500 mt-1">Platforms</div>
+              </div>
+              <div className="bg-white rounded-xl p-5 shadow-lg text-center">
+                <div className="text-4xl font-bold text-green-500">{Object.keys(typeCounts).length}</div>
+                <div className="text-gray-500 mt-1">Content Types</div>
+              </div>
+            </div>
+
+            {/* Platform Distribution */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Platform Distribution</h2>
+              <div className="space-y-4">
+                {Object.entries(platformCounts).map(([platform, count]) => {
+                  const pct = Math.round((count / totalPosts) * 100);
+                  const colors = platformColors[platform];
+                  return (
+                    <div key={platform}>
+                      <div className="flex justify-between mb-1">
+                        <span className={`font-semibold ${colors.text}`}>{platform}</span>
+                        <span className="text-gray-600">{count} posts ({pct}%)</span>
+                      </div>
+                      <div className="w-full bg-gray-100 rounded-full h-4">
+                        <div
+                          className={`${colors.bar} h-4 rounded-full transition-all`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Content Type Breakdown */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Content Type Breakdown</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(typeCounts).sort((a, b) => b[1] - a[1]).map(([type, count], i) => (
+                  <div key={type} className="border-2 border-gray-100 rounded-xl p-4 text-center">
+                    <div className={`inline-block w-3 h-3 rounded-full ${typeColors[i % typeColors.length]} mb-2`} />
+                    <div className="text-2xl font-bold text-gray-800">{count}</div>
+                    <div className="text-sm text-gray-500 mt-1">{type}</div>
+                    <div className="text-xs text-gray-400">{Math.round((count / totalPosts) * 100)}%</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Weekly Post Volume Bar Chart */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Weekly Post Volume</h2>
+              <div className="flex items-end gap-2 h-40">
+                {Array.from({ length: 12 }, (_, i) => i + 1).map(week => {
+                  const count = weeklyPostCounts[week] || 0;
+                  const heightPct = Math.round((count / maxWeeklyCount) * 100);
+                  const isSelected = week === selectedWeek;
+                  return (
+                    <div
+                      key={week}
+                      className="flex-1 flex flex-col items-center gap-1 cursor-pointer group"
+                      onClick={() => { setActiveTab('calendar'); setSelectedWeek(week); }}
+                    >
+                      <span className="text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity">{count}</span>
+                      <div
+                        className={`w-full rounded-t-md transition-all ${isSelected ? 'bg-pink-500' : 'bg-purple-300 hover:bg-pink-400'}`}
+                        style={{ height: `${heightPct}%`, minHeight: '4px' }}
+                      />
+                      <span className={`text-xs font-semibold ${isSelected ? 'text-pink-600' : 'text-gray-500'}`}>W{week}</span>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-400 mt-3 text-center">Click a bar to jump to that week in the calendar</p>
+            </div>
+
+            {/* Platform × Week Heatmap */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Platform Activity Heatmap</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr>
+                      <th className="text-left py-2 pr-4 text-gray-500 font-semibold w-24">Platform</th>
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map(w => (
+                        <th key={w} className="text-center py-2 px-1 text-gray-500 font-semibold">W{w}</th>
+                      ))}
+                      <th className="text-center py-2 px-2 text-gray-500 font-semibold">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {['Instagram', 'TikTok', 'Twitter'].map(platform => {
+                      const colors = platformColors[platform];
+                      return (
+                        <tr key={platform} className="border-t border-gray-100">
+                          <td className={`py-3 pr-4 font-semibold ${colors.text}`}>{platform}</td>
+                          {Array.from({ length: 12 }, (_, i) => i + 1).map(w => {
+                            const n = platformWeekMatrix[platform][w];
+                            return (
+                              <td key={w} className="py-3 px-1 text-center">
+                                <span className={`inline-block w-7 h-7 rounded-md text-xs font-bold leading-7 ${n > 0 ? `${colors.bar} text-white` : 'bg-gray-100 text-gray-400'}`}>
+                                  {n > 0 ? n : '–'}
+                                </span>
+                              </td>
+                            );
+                          })}
+                          <td className={`py-3 px-2 text-center font-bold ${colors.text}`}>{platformCounts[platform]}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Phase Overview */}
+            <div className="bg-white rounded-xl p-6 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Campaign Phases</h2>
+              <div className="space-y-4">
+                {phases.map(phase => (
+                  <div key={phase.label} className={`rounded-xl p-5 border-2 ${phase.color}`}>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className={`font-bold text-lg ${phase.text}`}>{phase.label}</h3>
+                      <span className={`text-sm font-semibold ${phase.text}`}>
+                        Weeks {phase.weeks[0]}–{phase.weeks[phase.weeks.length - 1]}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-4 gap-2">
+                      {phase.weeks.map(w => (
+                        <button
+                          key={w}
+                          onClick={() => { setActiveTab('calendar'); setSelectedWeek(w); }}
+                          className="bg-white rounded-lg p-2 text-left shadow-sm hover:shadow-md transition-all"
+                        >
+                          <div className={`text-xs font-bold ${phase.text} mb-1`}>Week {w}</div>
+                          <div className="text-xs text-gray-600 leading-tight">{contentThemes[w].theme}</div>
+                          <div className={`text-xs font-semibold ${phase.text} mt-1`}>{weeklyPostCounts[w]} posts</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ===== CALENDAR TAB ===== */}
+        {activeTab === 'calendar' && (<>
 
         {/* Week Selector */}
         <div className="bg-white rounded-xl p-6 mb-6 shadow-lg">
@@ -295,6 +534,8 @@ const SocialMediaCalendar = () => {
             </div>
           </div>
         </div>
+
+        </>)}
 
         {/* Footer Stats */}
         <div className="bg-gradient-to-r from-pink-50 to-purple-50 rounded-xl p-6 mt-8 border-2 border-pink-200">
