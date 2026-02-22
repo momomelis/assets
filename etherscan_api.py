@@ -52,5 +52,16 @@ def get_token_transfers(address: str, contract: str = None) -> list:
 
 # ── Run ──────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    wallet = "0xYourWalletAddressHere"
+    wallet = "0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045"
+
+    # Get balance
     print(get_eth_balance(wallet))
+
+    # Get all token transfers
+    transfers = get_token_transfers(wallet)
+
+    # Get transfers for a specific token (e.g. USDC)
+    usdc_transfers = get_token_transfers(
+        wallet,
+        contract="0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+    )
