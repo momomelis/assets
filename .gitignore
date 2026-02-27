@@ -6,3 +6,6 @@ packages
 
 # Tutorial content
 tutorials/*/content.json
+
+# Node modules
+node_modules
