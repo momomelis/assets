@@ -6,3 +6,11 @@ packages
 
 # Tutorial content
 tutorials/*/content.json
+
+# Node.js
+node_modules
+
+# Hardhat
+cache
+artifacts
+typechain-types
