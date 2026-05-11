@@ -671,12 +671,14 @@ const InteractiveGrass = () => {
 
     const updateInterval = setInterval(() => {
       setDiscoveries(prev =>
-        prev.map(discovery => ({
-          ...discovery,
-          y: discovery.y - 1.5,
-          opacity: discovery.opacity - 0.005,
-          scale: discovery.scale + 0.01
-        })).filter(discovery => discovery.opacity > 0)
+        prev
+          .map(discovery => ({
+            ...discovery,
+            y: discovery.y - 1.5,
+            opacity: discovery.opacity - 0.005,
+            scale: discovery.scale + 0.01
+          }))
+          .filter(discovery => discovery.opacity > 0)
       );
     }, 16);
 
@@ -838,62 +840,67 @@ const InteractiveGrass = () => {
         finalPrompt += ` Avoid these recent discoveries: "${avoidList.join('", "')}". Generate something different.`;
       }
 
-      const response = await window.claude.complete(finalPrompt);
-      const cleanResponse = response.trim().toLowerCase();
+      // Clamp x position before streaming begins
+      const padding = 150;
+      let xPos = x;
+      if (xPos < padding) xPos = padding;
+      if (xPos > dimensions.width - padding) xPos = dimensions.width - padding;
 
-      // Check if we've reached the limit for this discovery
+      // Add a streaming placeholder immediately
+      const discoveryId = Date.now();
+      setDiscoveries(prev => [...prev, {
+        id: discoveryId,
+        text: 'You found...',
+        x: xPos,
+        y: y - 60,
+        opacity: 1,
+        scale: 0,
+        color: color
+      }]);
+
+      playDiscoverySound(rarity);
+
+      // Stream response via observe, updating the floating text with each chunk
+      let fullText = '';
+      await window.claude.observe(finalPrompt, (chunk) => {
+        fullText += chunk;
+        const partial = fullText.trim().toLowerCase();
+
+        // Format into at most two lines
+        const maxLength = 20;
+        let displayText = partial;
+        if (partial.length > maxLength) {
+          const words = partial.split(' ');
+          const line1 = [];
+          const line2 = [];
+          let currentLine = line1;
+          words.forEach(word => {
+            if (currentLine === line1 && line1.join(' ').length + word.length > maxLength) {
+              currentLine = line2;
+            }
+            currentLine.push(word);
+          });
+          displayText = line1.join(' ') + '\n' + line2.join(' ');
+        }
+
+        setDiscoveries(prev => prev.map(d =>
+          d.id === discoveryId ? { ...d, text: `You found ${displayText}` } : d
+        ));
+      });
+
+      const cleanResponse = fullText.trim().toLowerCase();
+
+      // Track and collect the final response (skip duplicates beyond limit)
       const currentCount = discoveryTracker[cleanResponse] || 0;
-      if (currentCount >= 3) {
-        // If we've hit the limit, try to get a different discovery
-        const retryPrompt = prompt + ` Avoid: "${cleanResponse}". Also avoid these recent discoveries: "${recentDiscoveries.join('", "')}". Generate something completely different.`;
-        const retryResponse = await window.claude.complete(retryPrompt);
-        const retryCleanResponse = retryResponse.trim().toLowerCase();
-
-        // Update tracker for the new response
-        setDiscoveryTracker(prev => ({
-          ...prev,
-          [retryCleanResponse]: (prev[retryCleanResponse] || 0) + 1
-        }));
-
-        // Update recent discoveries
-        setRecentDiscoveries(prev => [...prev, retryCleanResponse].slice(-5));
-
-        // Add to collected discoveries list
-        setCollectedDiscoveries(prev => [...prev, {
-          text: retryCleanResponse,
-          color: color,
-          time: elapsedTime,
-          rarity: rarity < 0.7 ? 'common' : rarity < 0.9 ? 'uncommon' : 'rare'
-        }]);
-
-        // Display logic for retry response
-        displayDiscovery(retryCleanResponse, x, y, color);
-
-        // Play discovery sound
-        playDiscoverySound(rarity);
-      } else {
-        // Update tracker
-        setDiscoveryTracker(prev => ({
-          ...prev,
-          [cleanResponse]: currentCount + 1
-        }));
-
-        // Update recent discoveries
+      if (currentCount < 3) {
+        setDiscoveryTracker(prev => ({ ...prev, [cleanResponse]: currentCount + 1 }));
         setRecentDiscoveries(prev => [...prev, cleanResponse].slice(-5));
-
-        // Add to collected discoveries list
         setCollectedDiscoveries(prev => [...prev, {
           text: cleanResponse,
           color: color,
           time: elapsedTime,
           rarity: rarity < 0.7 ? 'common' : rarity < 0.9 ? 'uncommon' : 'rare'
         }]);
-
-        // Display logic for original response
-        displayDiscovery(cleanResponse, x, y, color);
-
-        // Play discovery sound
-        playDiscoverySound(rarity);
       }
     } catch (error) {
       console.error('Error generating discovery:', error);
@@ -917,43 +924,6 @@ const InteractiveGrass = () => {
     } finally {
       setTimeout(() => setIsGenerating(false), 200);
     }
-  };
-
-  // Helper function to display discovery
-  const displayDiscovery = (text, x, y, color) => {
-    // Split long text into lines if necessary
-    const maxLength = 20;
-    let displayText = text;
-    if (text.length > maxLength) {
-      const words = text.split(' ');
-      let line1 = [];
-      let line2 = [];
-      let currentLine = line1;
-
-      words.forEach(word => {
-        if (currentLine === line1 && line1.join(' ').length + word.length > maxLength) {
-          currentLine = line2;
-        }
-        currentLine.push(word);
-      });
-
-      displayText = line1.join(' ') + '\n' + line2.join(' ');
-    }
-
-    // Ensure text stays within bounds
-    let xPos = x;
-    const padding = 150;
-    if (xPos < padding) xPos = padding;
-    if (xPos > dimensions.width - padding) xPos = dimensions.width - padding;
-
-    setDiscoveries(prev => [...prev, {
-      text: `You found ${displayText}`,
-      x: xPos,
-      y: y - 60,
-      opacity: 1,
-      scale: 0,
-      color: color
-    }]);
   };
 
   // Handle interaction
